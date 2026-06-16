@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smile Rating Detector</title>
+
+    <!-- Tailwind -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- jQuery -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+
+    <!-- face-api.js -->
+    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js"></script>
+</head>
+<body class="bg-slate-900 min-h-screen flex items-center justify-center p-6">
+
+<div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-2xl">
+    <h1 class="text-3xl font-bold text-center mb-6">
+        😊 Live Smile Rating
+    </h1>
+
+    <div class="relative">
+        <video id="video"
+               autoplay
+               muted
+               playsinline
+               class="w-full rounded-xl border">
+        </video>
+
+        <canvas id="overlay"
+                class="absolute top-0 left-0">
+        </canvas>
+    </div>
+
+    <div class="mt-6">
+        <div class="flex justify-between mb-2">
+            <span class="font-semibold">Smile Score</span>
+            <span id="scoreText" class="font-bold text-green-600">
+                0%
+            </span>
+        </div>
+
+        <div class="w-full bg-gray-200 rounded-full h-6">
+            <div id="scoreBar"
+                 class="bg-green-500 h-6 rounded-full transition-all duration-300"
+                 style="width:0%">
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-6 text-center">
+        <div id="ratingLabel"
+             class="text-2xl font-bold text-blue-600">
+            Neutral
+        </div>
+    </div>
+</div>
+
+<script>
+const video = document.getElementById("video");
+
+async function startCamera() {
+    const stream = await navigator.mediaDevices.getUserMedia({
+        video: true
+    });
+
+    video.srcObject = stream;
+}
+
+async function loadModels() {
+
+    const MODEL_URL =
+        "https://justadudewhohacks.github.io/face-api.js/models";
+
+    await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
+    await faceapi.nets.faceExpressionNet.loadFromUri(MODEL_URL);
+}
+
+function getRating(score) {
+    if(score < 20) return "😐 Neutral";
+    if(score < 40) return "🙂 Slight Smile";
+    if(score < 60) return "😊 Smiling";
+    if(score < 80) return "😁 Big Smile";
+    return "🤩 Amazing Smile";
+}
+
+async function detectSmile() {
+
+    const detection = await faceapi
+        .detectSingleFace(
+            video,
+            new faceapi.TinyFaceDetectorOptions()
+        )
+        .withFaceExpressions();
+
+    if (!detection) {
+        $("#scoreText").text("No Face");
+        $("#scoreBar").css("width", "0%");
+        $("#ratingLabel").text("No Face Detected");
+        return;
+    }
+
+    const smile =
+        Math.round(
+            (detection.expressions.happy || 0) * 100
+        );
+
+    $("#scoreText").text(smile + "%");
+    $("#scoreBar").css("width", smile + "%");
+    $("#ratingLabel").text(getRating(smile));
+
+    if (smile > 70) {
+        $("#scoreBar")
+            .removeClass("bg-yellow-500 bg-red-500")
+            .addClass("bg-green-500");
+    } else if (smile > 30) {
+        $("#scoreBar")
+            .removeClass("bg-green-500 bg-red-500")
+            .addClass("bg-yellow-500");
+    } else {
+        $("#scoreBar")
+            .removeClass("bg-green-500 bg-yellow-500")
+            .addClass("bg-red-500");
+    }
+}
+
+async function init() {
+    await loadModels();
+    await startCamera();
+
+    video.addEventListener("play", () => {
+        setInterval(detectSmile, 200);
+    });
+}
+
+init();
+</script>
+
+</body>
+</html>
